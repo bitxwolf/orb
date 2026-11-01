@@ -16,7 +16,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -117,7 +116,7 @@ def export_gguf(
     output_path:
         Final output path for the quantised ``.gguf`` file.
     quant_type:
-        Quantisation type, e.g. ``"Q4_K_M"``, ``"Q5_K_M"``, ``"Q8_0"``.
+        Quantisation type, e.g. ``"Q4_K_M"``, ``"Q5_K_M"``, ``"Q8_0``.
 
     Returns
     -------
@@ -376,4 +375,3 @@ def export_gguf_from_lora(
     emit_log("info", f"LoRA merge complete: {output_path}")
 
     return output_path
-
