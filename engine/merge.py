@@ -11,7 +11,6 @@ from __future__ import annotations
 import gc
 import logging
 import os
-from typing import Any
 
 from engine.ipc import emit_log, emit_stage
 
