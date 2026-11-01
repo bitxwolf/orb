@@ -42,7 +42,7 @@ def main() -> None:
 
     # ---- 2. Read config ----------------------------------------------
     try:
-        with open(args.config, "r", encoding="utf-8") as fh:
+        with open(args.config, encoding="utf-8") as fh:
             config: dict[str, Any] = json.load(fh)
     except (OSError, json.JSONDecodeError) as exc:
         # We haven't set up IPC logging yet, so write to stderr which
