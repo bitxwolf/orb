@@ -9,7 +9,8 @@ training without caring about the underlying framework.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass  # heavy imports (torch, mlx) only under type‑checking
