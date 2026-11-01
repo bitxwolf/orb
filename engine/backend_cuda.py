@@ -18,7 +18,6 @@ from engine.backend_base import TrainingBackend
 from engine.ipc import emit_log
 
 if TYPE_CHECKING:
-    import torch
     from peft import PeftModel
     from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
@@ -398,86 +397,42 @@ class CUDABackend(TrainingBackend):
         )
 
     # ------------------------------------------------------------------ #
-    # save_adapter
+    # Adapter operations
     # ------------------------------------------------------------------ #
 
     def save_adapter(self, output_path: str) -> None:
-        assert self.model is not None
+        """Save the trained PEFT adapter and tokenizer."""
+        assert self.model is not None, "No model is loaded."
         os.makedirs(output_path, exist_ok=True)
         self.model.save_pretrained(output_path)
         if self.tokenizer is not None:
             self.tokenizer.save_pretrained(output_path)
-        emit_log("info", f"Adapter saved to {output_path}")
 
-    # ------------------------------------------------------------------ #
-    # merge_adapter
-    # ------------------------------------------------------------------ #
-
-    def merge_adapter(self, output_path: str) -> None:
-        """Merge LoRA into base model and save full‑precision weights.
-
-        We reload the base model in fp16 (not 4‑bit) so the merge produces
-        usable weights for GGUF conversion.
-        """
-        import torch
-        from peft import PeftModel
-        from transformers import AutoModelForCausalLM
-
-        emit_log("info", "Merging adapter into base model (fp16 reload)…")
-
-        base = AutoModelForCausalLM.from_pretrained(
-            self._base_model_id,
-            torch_dtype=torch.float16,
-            device_map="cpu",
-            low_cpu_mem_usage=True,
-        )
-
-        # The adapter dir is the same as the output_dir from training
-        # but the caller passes the adapter path explicitly via the
-        # merge module so we don't need to guess here – we just merge
-        # in‑place from self.model.
-        assert self.model is not None
-        adapter_path = None
-        # Find the adapter path from the model's peft config.
-        if hasattr(self.model, "peft_config"):
-            for cfg in self.model.peft_config.values():
-                if hasattr(cfg, "base_model_name_or_path"):
-                    pass  # we already know the base id
-        # Grab adapter weights from current model state.
-        # Re‑save adapter to a temp location if needed.
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as tmp:
-            self.model.save_pretrained(tmp)
-            merged = PeftModel.from_pretrained(base, tmp)
-
-        merged = merged.merge_and_unload()
+    def merge_adapter(self, output_path: str) -> str:
+        """Merge the adapter into the base model and save the merged model."""
+        assert self.model is not None, "No model is loaded."
+        if not hasattr(self.model, "merge_and_unload"):
+            raise RuntimeError("The loaded model does not have a mergeable adapter.")
 
         os.makedirs(output_path, exist_ok=True)
-        merged.save_pretrained(output_path, safe_serialization=True)
+        self.model = self.model.merge_and_unload()
+        self.model.save_pretrained(output_path, safe_serialization=True)
         if self.tokenizer is not None:
             self.tokenizer.save_pretrained(output_path)
-        emit_log("info", f"Merged model saved to {output_path}")
+        return output_path
 
-        # Free memory.
-        del merged, base
-        gc.collect()
-        try:
-            import torch as _torch
-            _torch.cuda.empty_cache()
-        except Exception:
-            pass
-
-    # ------------------------------------------------------------------ #
-    # get_trainable_params_info
-    # ------------------------------------------------------------------ #
-
-    def get_trainable_params_info(self) -> dict[str, Any]:
-        assert self.model is not None
-        trainable = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        total = sum(p.numel() for p in self.model.parameters())
+    def get_trainable_params_info(self) -> dict[str, int | float]:
+        """Return the trainable and total parameter counts and percentage."""
+        assert self.model is not None, "No model is loaded."
+        trainable_params = sum(
+            parameter.numel()
+            for parameter in self.model.parameters()
+            if parameter.requires_grad
+        )
+        total_params = sum(parameter.numel() for parameter in self.model.parameters())
+        trainable_pct = 100.0 * trainable_params / total_params if total_params else 0.0
         return {
-            "trainable_params": trainable,
-            "total_params": total,
-            "trainable_pct": 100.0 * trainable / max(total, 1),
+            "trainable_params": trainable_params,
+            "total_params": total_params,
+            "trainable_pct": trainable_pct,
         }
