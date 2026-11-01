@@ -8,7 +8,6 @@ regular Hugging Face model ID.
 
 from __future__ import annotations
 
-import gc
 import logging
 import math
 import os
@@ -419,7 +418,7 @@ class MLXBackend(TrainingBackend):
         """Convert MLX‑format weights to HF safetensors if they aren't already.
 
         ``mlx_lm.fuse_model`` already saves in HF‑compatible format for
-        most models, so this is a best‑effort conversion.
+        most models, so this is a best-effort conversion.
         """
         from pathlib import Path
 
@@ -479,20 +478,22 @@ class MLXBackend(TrainingBackend):
 
 
 def _tree_map_add(tree_a: Any, tree_b: Any) -> Any:
-    """Element‑wise add two nested dicts/lists of MLX arrays."""
+    """Add corresponding arrays in nested gradient structures."""
     if isinstance(tree_a, dict):
-        return {k: _tree_map_add(tree_a[k], tree_b[k]) for k in tree_a}
-    if isinstance(tree_a, (list, tuple)):
-        return type(tree_a)(_tree_map_add(a, b) for a, b in zip(tree_a, tree_b))
+        return {key: _tree_map_add(tree_a[key], tree_b[key]) for key in tree_a}
+    if isinstance(tree_a, list):
+        return [_tree_map_add(a, b) for a, b in zip(tree_a, tree_b)]
+    if isinstance(tree_a, tuple):
+        return tuple(_tree_map_add(a, b) for a, b in zip(tree_a, tree_b))
     return tree_a + tree_b
 
 
 def _tree_map_scale(tree: Any, scale: float) -> Any:
-    """Multiply every leaf array by *scale*."""
-    import mlx.core as mx  # type: ignore[import-untyped]
-
+    """Scale every array in a nested gradient structure."""
     if isinstance(tree, dict):
-        return {k: _tree_map_scale(v, scale) for k, v in tree.items()}
-    if isinstance(tree, (list, tuple)):
-        return type(tree)(_tree_map_scale(v, scale) for v in tree)
-    return tree * mx.array(scale)
+        return {key: _tree_map_scale(value, scale) for key, value in tree.items()}
+    if isinstance(tree, list):
+        return [_tree_map_scale(value, scale) for value in tree]
+    if isinstance(tree, tuple):
+        return tuple(_tree_map_scale(value, scale) for value in tree)
+    return tree * scale
