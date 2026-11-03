@@ -177,6 +177,9 @@ def _apply_chat_template(
     )
 
     for conv in conversations:
+        if not isinstance(conv, dict):
+            logger.warning("Skipping non-object conversation.")
+            continue
         messages = conv["messages"]
         if has_chat_template:
             try:
