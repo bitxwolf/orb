@@ -17,7 +17,8 @@ import os
 import re
 import shutil
 import subprocess
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from engine.backend_base import TrainingBackend
 from engine.ipc import emit_log
