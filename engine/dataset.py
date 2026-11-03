@@ -131,6 +131,10 @@ def _load_jsonl(path: str) -> list[dict[str, Any]]:
                 logger.warning("Skipping malformed JSON at line %d: %s", lineno, exc)
                 continue
 
+            if not isinstance(obj, dict):
+                logger.warning("Skipping line %d: expected a JSON object.", lineno)
+                continue
+
             # Normalise to {"messages": [...]}
             if "messages" in obj:
                 conversations.append(obj)
@@ -173,6 +177,9 @@ def _apply_chat_template(
     )
 
     for conv in conversations:
+        if not isinstance(conv, dict):
+            logger.warning("Skipping non-object conversation.")
+            continue
         messages = conv["messages"]
         if has_chat_template:
             try:
