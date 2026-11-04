@@ -198,9 +198,15 @@ export function App({ debug = false }: AppProps) {
     dispatch({ type: 'SET_STEP', step: 'training' });
 
     const runDir = generateRunDir(state.model.id);
-    await ensureDir(runDir);
     const checkpointDir = `${runDir}/checkpoints`;
-    await ensureDir(checkpointDir);
+    try {
+      await ensureDir(runDir);
+      await ensureDir(checkpointDir);
+    } catch (err) {
+      const e = toPlainLanguageError(err);
+      dispatch({ type: 'SET_ERROR', message: e.userMessage, guidance: e.guidance });
+      return;
+    }
 
     const modelName = generateModelName(state.model.id, state.datasetMeta.path);
     const ggufOutputPath = `${runDir}/${modelName}.gguf`;
