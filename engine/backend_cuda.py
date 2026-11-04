@@ -207,8 +207,9 @@ class CUDABackend(TrainingBackend):
             collate_fn=dataset.get("collate_fn"),
         )
 
-        steps_per_epoch = len(dataloader) // grad_accum
-        total_steps = steps_per_epoch * epochs
+        # Accumulation carries across epoch boundaries, so count batches
+        # across all epochs before rounding down to optimizer steps.
+        total_steps = (len(dataloader) * epochs) // grad_accum
         if max_steps > 0:
             total_steps = min(total_steps, max_steps)
 
