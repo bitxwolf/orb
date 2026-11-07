@@ -1,10 +1,3 @@
-/**
- * Root wizard component for Orb.
- * Orbital Terminal design system — Cyberpunk-Minimalist TUI.
- * Manages the multi-step wizard flow using a state machine.
- * Each step renders its own component and passes data forward.
- */
-
 import { useState, useReducer, useEffect, useCallback } from 'react';
 import { Box, Text, useApp } from 'ink';
 
@@ -198,9 +191,21 @@ export function App({ debug = false }: AppProps) {
     dispatch({ type: 'SET_STEP', step: 'training' });
 
     const runDir = generateRunDir(state.model.id);
-    await ensureDir(runDir);
     const checkpointDir = `${runDir}/checkpoints`;
-    await ensureDir(checkpointDir);
+    try {
+      await ensureDir(runDir);
+      await ensureDir(checkpointDir);
+    } catch (err) {
+      const e = toPlainLanguageError(err);
+      dispatch({
+        type: 'SET_ERROR',
+        message: e.userMessage,
+        guidance: debug && e.technicalDetail
+          ? [e.guidance, e.technicalDetail].filter(Boolean).join('\n')
+          : e.guidance,
+      });
+      return;
+    }
 
     const modelName = generateModelName(state.model.id, state.datasetMeta.path);
     const ggufOutputPath = `${runDir}/${modelName}.gguf`;
